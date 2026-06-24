@@ -1,0 +1,231 @@
+// @ts-nocheck
+import { useState, useEffect, useRef } from 'react'
+import { Button, message, Form, Input, Tabs, Spin } from 'antd'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useAuthStore } from '../stores/auth'
+import api from '../lib/api'
+import { UserOutlined, LockOutlined } from '@ant-design/icons'
+
+export default function Login() {
+  const [loading, setLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState('wechat')
+  const [qrLoading, setQrLoading] = useState(true)
+  const navigate = useNavigate()
+  const setAuth = useAuthStore((state) => state.setAuth)
+  const [searchParams] = useSearchParams()
+  const qrContainerRef = useRef<HTMLDivElement>(null)
+
+  // 检查URL中是否有token（企业微信回调）
+  useEffect(() => {
+    const token = searchParams.get('token')
+    const userStr = searchParams.get('user')
+    
+    if (token && userStr) {
+      try {
+        const user = JSON.parse(decodeURIComponent(userStr))
+        setAuth(token, user)
+        message.success('登录成功')
+        navigate('/')
+      } catch (error) {
+        message.error('登录解析失败')
+      }
+    }
+  }, [searchParams, setAuth, navigate])
+
+  // 加载企业微信扫码登录
+  useEffect(() => {
+    if (activeTab === 'wechat' && qrContainerRef.current) {
+      setQrLoading(true)
+      
+      // 清理之前的二维码
+      qrContainerRef.current.innerHTML = ''
+      
+      // 动态加载企业微信登录SDK
+      const script = document.createElement('script')
+      script.src = 'https://wwcdn.weixin.qq.com/node/wwopen/js/wwauth-2.2.1.js'
+      script.onload = () => {
+        try {
+          // @ts-ignore
+          if (window.WWLogin) {
+            // @ts-ignore
+            new window.WWLogin({
+              target: qrContainerRef.current!,
+              proxy: '', // 不使用代理
+              id: 'wechat_qr',
+              appid: '', // 企业微信CorpID
+              redirectUri: encodeURIComponent(window.location.origin + '/api/auth/wechat-callback'),
+              state: 'wechat_login',
+              usertype: 'member'
+            })
+            setQrLoading(false)
+          }
+        } catch (error) {
+          console.error('企业微信登录初始化失败:', error)
+          // 如果SDK加载失败，显示备用方案
+          qrContainerRef.current!.innerHTML = `
+            <div style="padding: 40px; text-align: center;">
+              <p style="color: #666; margin-bottom: 16px;">企业微信扫码登录</p>
+              <Button type="primary" onclick="window.open('/api/auth/wechat-qr-url', '_blank')">
+                点击打开企业微信登录
+              </Button>
+            </div>
+          `
+          setQrLoading(false)
+        }
+      }
+      script.onerror = () => {
+        qrContainerRef.current!.innerHTML = `
+          <div style="padding: 40px; text-align: center;">
+            <p style="color: #666; margin-bottom: 16px;">无法加载企业微信SDK</p>
+            <p style="color: #999; font-size: 12;">请确保网络可以访问企业微信</p>
+          </div>
+        `
+        setQrLoading(false)
+      }
+      document.body.appendChild(script)
+    }
+  }, [activeTab])
+
+  // 用户名密码登录
+  const handlePasswordLogin = async (values: { username: string; password: string }) => {
+    setLoading(true)
+    try {
+      const res: any = await api.post('/auth/login', {
+        username: values.username,
+        password: values.password
+      })
+      if (res.success) {
+        setAuth(res.data.token, res.data.user)
+        message.success('登录成功')
+        navigate('/')
+      } else {
+        message.error(res.message || '登录失败')
+      }
+    } catch (error: any) {
+      message.error(error?.message || '登录失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 打开企业微信扫码页面
+  const handleOpenWechatQR = async () => {
+    try {
+      const res: any = await api.get('/auth/wechat-qr-url')
+      if (res.success && res.data.qrUrl) {
+        window.open(res.data.qrUrl, '_blank', 'width=500,height=600')
+      } else {
+        message.error('获取登录二维码失败')
+      }
+    } catch (error) {
+      message.error('获取登录二维码失败')
+    }
+  }
+
+  return (
+    <div style={{
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: '#f0f2f5'
+    }}>
+      <div style={{
+        padding: 48,
+        background: '#fff',
+        borderRadius: 8,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        textAlign: 'center',
+        width: 420
+      }}>
+        <h1 style={{ marginBottom: 32 }}>OA 办公系统</h1>
+
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          items={[
+            {
+              key: 'wechat',
+              label: '企业微信登录',
+              children: (
+                <>
+                  <p style={{ marginBottom: 16, color: '#666' }}>
+                    使用企业微信扫码登录，无需注册
+                  </p>
+
+                  <div ref={qrContainerRef} style={{
+                    minHeight: 280,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    {qrLoading && <Spin tip="加载中..." />}
+                  </div>
+
+                  <Button
+                    type="primary"
+                    size="large"
+                    onClick={handleOpenWechatQR}
+                    style={{ width: '100%', marginTop: 8 }}
+                  >
+                    用企业微信扫码登录
+                  </Button>
+
+                  <p style={{ marginTop: 16, fontSize: 12, color: '#999' }}>
+                    首次扫码将自动创建账号
+                  </p>
+                </>
+              )
+            },
+            {
+              key: 'password',
+              label: '账号登录',
+              children: (
+                <Form
+                  onFinish={handlePasswordLogin}
+                  autoComplete="off"
+                  style={{ textAlign: 'left' }}
+                >
+                  <Form.Item
+                    name="username"
+                    rules={[{ required: true, message: '请输入用户名' }]}
+                  >
+                    <Input
+                      prefix={<UserOutlined />}
+                      placeholder="用户名"
+                      size="large"
+                    />
+                  </Form.Item>
+
+                  <Form.Item
+                    name="password"
+                    rules={[{ required: true, message: '请输入密码' }]}
+                  >
+                    <Input.Password
+                      prefix={<LockOutlined />}
+                      placeholder="密码"
+                      size="large"
+                    />
+                  </Form.Item>
+
+                  <Form.Item>
+                    <Button
+                      type="primary"
+                      htmlType="submit"
+                      size="large"
+                                           style={{ width: '100%' }}
+                    >
+                      登录
+ loading={loading}
+                    </Button>
+                  </Form.Item>
+                </Form>
+              )
+            }
+          ]}
+        />
+      </div>
+    </div>
+  )
+}

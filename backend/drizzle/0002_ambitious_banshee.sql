@@ -1,0 +1,2 @@
+-- 添加用户角色字段
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'member' NOT NULL;

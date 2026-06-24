@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  db:
+    image: postgres:16-alpine
+    container_name: oa-db
+    environment:
+      POSTGRES_DB: oa_system
+      POSTGRES_USER: oa_user
+      POSTGRES_PASSWORD: oa_password
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oa_user -d oa_system"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 后端 API 服务
+  backend:
+    build: ./backend
+    container_name: oa-backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: oa_system
+      DB_USER: oa_user
+      DB_PASSWORD: oa_password
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # 前端 Web 服务
+  frontend:
+    build: ./frontend
+    container_name: oa-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

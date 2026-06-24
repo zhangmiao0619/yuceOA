@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  db:
+    image: postgres:16-alpine
+    container_name: oa-db
+    environment:
+      POSTGRES_DB: oa_system
+      POSTGRES_USER: oa_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-oa_password}
+    volumes:
+      - ${NAS_DATA_PATH:-./data}/postgres:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oa_user -d oa_system"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: always
+    networks:
+      - oa-network
+
+  # 后端 API 服务
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: oa-backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: oa_system
+      DB_USER: oa_user
+      DB_PASSWORD: ${DB_PASSWORD:-oa_password}
+      JWT_SECRET: ${JWT_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      WECHAT_CORP_ID: ${WECHAT_CORP_ID:-}
+      WECHAT_SECRET: ${WECHAT_SECRET:-}
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    volumes:
+      - ${NAS_DATA_PATH:-./data}/uploads:/app/uploads
+      - ${NAS_DATA_PATH:-./data}/backups:/app/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+    networks:
+      - oa-network
+
+  # 前端 Web 服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: oa-frontend
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - backend
+    restart: always
+    networks:
+      - oa-network
+
+  # Nginx 反向代理（统一入口）
+  nginx:
+    image: nginx:alpine
+    container_name: oa-nginx
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      # 如需 HTTPS，取消下面注释并配置 SSL
+      # - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.nas.conf:/etc/nginx/conf.d/default.conf:ro
+      # - ./nginx/ssl:/etc/nginx/ssl:ro  # SSL 证书目录
+    depends_on:
+      - frontend
+      - backend
+    restart: always
+    networks:
+      - oa-network
+
+volumes:
+  postgres_data:
+
+networks:
+  oa-network:
+    driver: bridge
