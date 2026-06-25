@@ -29,3 +29,4 @@ Dockerfile
 docker-compose*.yml
 nginx/*.conf
 docker/
+backend/uploads/
