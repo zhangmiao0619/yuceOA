@@ -27,7 +27,7 @@ const allMenuItems = [
   { key: '/workflows', icon: <FileTextOutlined />, label: '审批流程', permissions: ['workflow:submit', 'workflow:approve'] },
   // { key: '/reports', icon: <BarChartOutlined />, label: '报表中心', permissions: ['system:report'] },
   { key: '/users', icon: <TeamOutlined />, label: '人事管理', permissions: ['hr:view'] },
-  { key: '/address-book', icon: <TeamOutlined />, label: '通讯录', permissions: ['system:addressBook'] },
+  // { key: '/address-book', icon: <TeamOutlined />, label: '通讯录', permissions: ['system:addressBook'] },
   { key: '/admin-settings', icon: <SettingOutlined />, label: '管理员设置', permissions: ['system:settings'] },
   // { key: '/contracts', icon: <FileTextOutlined />, label: '合同管理', permissions: ['hr:contract'] },
   { key: '/finance', icon: <DollarOutlined />, label: '财务管理', permissions: ['finance:view'] },

@@ -71,7 +71,7 @@ function App() {
           <Route path="contracts" element={<Contracts />} />
           <Route path="finance" element={<Finance />} />
           <Route path="admin-settings" element={<AdminSettings />} />
-          <Route path="address-book" element={<AddressBook />} />
+          {/* <Route path="address-book" element={<AddressBook />} /> */}
           <Route path="tasks/:taskId" element={<SubTaskDetail />} />
         </Route>
       </Routes>
