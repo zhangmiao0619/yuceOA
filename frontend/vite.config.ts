@@ -24,7 +24,7 @@ export default defineConfig({
     allowedHosts: ['5ca85b97.r17.cpolar.top', '.cpolar.top', 'wuhanyuceOA.com', '192.168.1.106'],
     proxy: {
       '/api': {
-        target: 'http://localhost:3002',
+        target: 'http://localhost:3000',
         changeOrigin: true
       }
     }

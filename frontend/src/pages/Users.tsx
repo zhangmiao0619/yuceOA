@@ -5,7 +5,7 @@ import { Card, Table, Button, Modal, Form, Input, Select, Switch, Space, message
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined, EyeOutlined, HistoryOutlined,
   TeamOutlined, ContainerOutlined, BellOutlined, FileTextOutlined, ClockCircleOutlined,
-  FieldTimeOutlined, FormOutlined, UploadOutlined
+  FieldTimeOutlined, FormOutlined, UploadOutlined, SyncOutlined
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useAuthStore, hasPermission } from '../stores/auth'
@@ -51,6 +51,7 @@ export default function Users() {
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importLoading, setImportLoading] = useState(false)
   const [importResult, setImportResult] = useState<any>(null)
+  const [syncing, setSyncing] = useState(false)
   const adminViews = ['employees', 'assets', 'alerts', 'contracts', 'timeTracking', 'outsourcing']
   const [searchParams] = useSearchParams()
   const [currentView, setCurrentView] = useState<string>(() => {
@@ -194,6 +195,27 @@ export default function Users() {
     link.href = URL.createObjectURL(blob)
     link.download = '员工导入模板.csv'
     link.click()
+  }
+
+  const handleWechatSync = async () => {
+    setSyncing(true)
+    try {
+      const res = await authFetch('/api/wechat/sync-address-book', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      const data = await res.json()
+      if (data.success) {
+        message.success(`同步完成：新增${data.data?.created || 0}人，更新${data.data?.updated || 0}人`)
+        fetchUsers()
+      } else {
+        message.error(data.message || '同步失败')
+      }
+    } catch (err) {
+      message.error('同步失败，请检查企业微信配置')
+    } finally {
+      setSyncing(false)
+    }
   }
 
   const handleSubmit = async (values: any) => {
@@ -445,6 +467,7 @@ export default function Users() {
             <Space>
               <Button onClick={() => { setImportModalVisible(true); setImportFile(null); setImportResult(null); }}>导入员工</Button>
               <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditingUser(null); form.resetFields(); setModalVisible(true); }}>添加员工</Button>
+              <Button icon={<SyncOutlined spin={syncing} />} loading={syncing} onClick={handleWechatSync}>同步企业微信</Button>
             </Space>
           </div>
           
