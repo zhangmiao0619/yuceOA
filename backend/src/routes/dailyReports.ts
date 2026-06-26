@@ -8,6 +8,10 @@ import { authMiddleware } from '../middleware/auth.js'
 
 const sqlite = (db as any).$client
 
+// 迁移：确保 daily_reports 表有必要的列
+try { sqlite.exec(`ALTER TABLE daily_reports ADD COLUMN cc_users TEXT DEFAULT '[]'`) } catch (e) {}
+try { sqlite.exec(`ALTER TABLE daily_reports ADD COLUMN submit_time DATETIME`) } catch (e) {}
+
 export const dailyReportRoutes = new Hono()
 
 dailyReportRoutes.use('*', authMiddleware)
